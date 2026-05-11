@@ -95,16 +95,18 @@ docker build -t app-cache .
 
 Jetzt kommt der eigentliche Auftrag. Du erweiterst das Dockerfile um eine zweite Stage.
 
-**3.1** Benenne die erste Stage:
+**3.1** Benenne die erste Stage und setze das Arbeitsverzeichnis:
 
 ```dockerfile
 FROM python:3.12 AS builder
+WORKDIR /build
 ```
 
-**3.2** Installiere die Abhängigkeiten im Builder mit `--user`:
+**3.2** Kopiere zuerst `requirements.txt` und installiere dann die Abhängigkeiten mit `--user`:
 
-```bash
-pip install --user -r requirements.txt
+```dockerfile
+COPY requirements.txt .
+RUN pip install --user -r requirements.txt
 ```
 
 > **Warum `--user`?** Damit die Pakete unter `/root/.local` landen und einfach in die nächste Stage kopiert werden können.
@@ -117,6 +119,7 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 COPY src/ .
 ENV PATH=/root/.local/bin:$PATH
+EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
@@ -150,10 +153,10 @@ Erwartete Ausgabe:
 **4.3** Prüfe, ob Build-Tools im finalen Image fehlen:
 
 ```bash
-docker run --rm app-nachher pip --version
+docker run --rm app-nachher gcc --version
 ```
 
-> Was beobachtest du? Warum ist das gut für die Sicherheit?
+> Was beobachtest du? `gcc` ist im Builder vorhanden, wurde aber nicht ins finale Image kopiert – das finale Image enthält nur das Laufzeit-Nötigste. Warum ist das gut für die Sicherheit?
 
 ---
 
@@ -176,8 +179,8 @@ docker run -it app-debug /bin/sh
 **5.3** Untersuche die Umgebung:
 
 ```bash
-pip list          # alle installierten Pakete sichtbar?
-ls -la /build/    # was ist im Verzeichnis?
+pip list               # alle installierten Pakete sichtbar?
+ls -la /root/.local/   # wo landen die --user Pakete?
 exit
 ```
 
